@@ -11,10 +11,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnalyticsServiceImpl implements AnalyticsService {
@@ -28,6 +30,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Cacheable(cacheNames = "analytics", key = "#shortCode", unless = "#result.totalClicks == 0")
     @Transactional(readOnly = true)
     public AnalyticsResponse buildAnalytics(UUID urlId, String shortCode) {
+        // Same @Cacheable short-circuit note as UrlServiceImpl#resolveForRedirect: this only
+        // logs on a cache miss (a real aggregation query), not on every cached read.
+        log.info("Analytics computed (cache miss): shortCode={} urlId={}", shortCode, urlId);
         long totalClicks = urlClickRepository.countByUrlId(urlId);
         long uniqueVisitors = urlClickRepository.countDistinctVisitors(urlId);
 

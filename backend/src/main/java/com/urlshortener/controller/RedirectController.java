@@ -12,6 +12,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * onto Kafka (via an in-process domain event) rather than written synchronously, so the
  * redirect response doesn't wait on Postgres. See docs/ARCHITECTURE.md for the full flow.
  */
+@Slf4j
 @Tag(name = "Redirect", description = "Public short-link redirection")
 @RestController
 @RequiredArgsConstructor
@@ -44,15 +46,18 @@ public class RedirectController {
         UrlRedirectTarget target = urlService.resolveForRedirect(shortCode);
 
         if (target.isExpired()) {
+            log.info("Redirect blocked (expired): shortCode={} expiresAt={}", shortCode, target.expiresAt());
             throw new UrlExpiredException("This link expired on " + target.expiresAt());
         }
 
         if (target.isPasswordProtected()) {
+            log.info("Redirect deferred to password gate: shortCode={}", shortCode);
             URI promptPage = URI.create(baseUrl + "/protected.html?code=" + shortCode);
             return ResponseEntity.status(HttpStatus.FOUND).location(promptPage).build();
         }
 
         publishClickEvent(target, request);
+        log.info("Redirect served: shortCode={} urlId={}", shortCode, target.urlId());
 
         return ResponseEntity.status(HttpStatus.FOUND)
             .location(URI.create(target.originalUrl()))

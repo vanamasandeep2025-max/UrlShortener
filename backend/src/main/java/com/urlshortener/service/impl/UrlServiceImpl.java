@@ -85,6 +85,8 @@ public class UrlServiceImpl implements UrlService {
 
         auditService.log(ActorType.USER, user.getId(), "URL_CREATED", "URL", url.getId().toString(),
             Map.of("shortCode", url.getShortCode(), "hasExpiry", url.getExpiresAt() != null), null);
+        log.info("URL created: shortCode={} userId={} hasExpiry={} passwordProtected={}",
+            url.getShortCode(), user.getId(), url.getExpiresAt() != null, url.getPasswordHash() != null);
 
         return toResponseWithShortUrl(url);
     }
@@ -118,8 +120,16 @@ public class UrlServiceImpl implements UrlService {
     @Cacheable(cacheNames = "urlLookup", key = "#shortCode")
     @Transactional(readOnly = true)
     public UrlRedirectTarget resolveForRedirect(String shortCode) {
+        // @Cacheable short-circuits this body entirely on a cache hit, so this log line
+        // only fires on a genuine cache miss (a fresh Postgres lookup) - by design, not an
+        // omission: logging every cache-hit redirect would put a log line on the hot path
+        // this whole cache exists to keep fast.
         Url url = urlRepository.findByShortCodeAndDeletedAtIsNull(shortCode)
-            .orElseThrow(() -> new ResourceNotFoundException("No URL found for code: " + shortCode));
+            .orElseThrow(() -> {
+                log.warn("Redirect lookup miss: shortCode={} (no such active link)", shortCode);
+                return new ResourceNotFoundException("No URL found for code: " + shortCode);
+            });
+        log.info("Redirect resolved (cache miss): shortCode={} urlId={}", shortCode, url.getId());
         return new UrlRedirectTarget(url.getId(), url.getShortCode(), url.getOriginalUrl(), url.getPasswordHash(), url.getExpiresAt());
     }
 
@@ -154,6 +164,7 @@ public class UrlServiceImpl implements UrlService {
         evictCaches(url.getShortCode());
         auditService.log(ActorType.USER, currentUserId, "URL_DELETED", "URL",
             url.getId().toString(), Map.of("shortCode", url.getShortCode()), null);
+        log.info("URL soft-deleted: shortCode={} urlId={} byUserId={}", url.getShortCode(), url.getId(), currentUserId);
     }
 
     @Override
@@ -165,6 +176,7 @@ public class UrlServiceImpl implements UrlService {
         evictCaches(url.getShortCode());
         auditService.log(ActorType.USER, currentUserId, "URL_EXPIRY_UPDATED", "URL", url.getId().toString(),
             Map.of("expiresAt", String.valueOf(request.getExpiresAt())), null);
+        log.info("URL expiry updated: shortCode={} urlId={} newExpiresAt={}", url.getShortCode(), url.getId(), request.getExpiresAt());
         return toResponseWithShortUrl(url);
     }
 

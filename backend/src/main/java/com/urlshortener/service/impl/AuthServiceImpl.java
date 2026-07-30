@@ -16,11 +16,13 @@ import io.jsonwebtoken.Claims;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -49,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
 
         auditService.log(ActorType.USER, user.getId(), "USER_REGISTERED", "USER", user.getId().toString(),
             Map.of("username", user.getUsername()), null);
+        log.info("User registered: username={} userId={} role={}", user.getUsername(), user.getId(), user.getRole());
 
         return issueTokenPair(user);
     }
@@ -60,16 +63,20 @@ public class AuthServiceImpl implements AuthService {
             .orElseGet(() -> {
                 auditService.log(ActorType.ANONYMOUS, null, "LOGIN_FAILURE", "USER", null,
                     Map.of("username", request.getUsername(), "reason", "unknown_username"), null);
+                log.warn("Login failed: username={} reason=unknown_username", request.getUsername());
                 throw new BadCredentialsException("Invalid username or password");
             });
 
         if (!user.isEnabled() || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            String reason = user.isEnabled() ? "bad_password" : "account_disabled";
             auditService.log(ActorType.USER, user.getId(), "LOGIN_FAILURE", "USER", user.getId().toString(),
-                Map.of("reason", user.isEnabled() ? "bad_password" : "account_disabled"), null);
+                Map.of("reason", reason), null);
+            log.warn("Login failed: username={} userId={} reason={}", user.getUsername(), user.getId(), reason);
             throw new BadCredentialsException("Invalid username or password");
         }
 
         auditService.log(ActorType.USER, user.getId(), "LOGIN_SUCCESS", "USER", user.getId().toString(), null, null);
+        log.info("Login succeeded: username={} userId={}", user.getUsername(), user.getId());
         return issueTokenPair(user);
     }
 

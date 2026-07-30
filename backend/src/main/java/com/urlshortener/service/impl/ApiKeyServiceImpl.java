@@ -18,10 +18,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApiKeyServiceImpl implements ApiKeyService {
@@ -50,6 +52,9 @@ public class ApiKeyServiceImpl implements ApiKeyService {
 
         auditService.log(ActorType.USER, userId, "API_KEY_CREATED", "API_KEY", apiKey.getId().toString(),
             Map.of("name", apiKey.getName(), "prefix", apiKey.getKeyPrefix()), null);
+        // Prefix only, never the plaintext key or its hash - see AI_ENGINEERING/06_review_checklist.md
+        // "Honesty of claims" / secrets-never-logged check.
+        log.info("API key created: name={} prefix={} userId={}", apiKey.getName(), apiKey.getKeyPrefix(), userId);
 
         ApiKeyResponse response = apiKeyMapper.toResponse(apiKey);
         response.setPlaintextKey(plaintextKey);
@@ -76,5 +81,6 @@ public class ApiKeyServiceImpl implements ApiKeyService {
         apiKeyRepository.save(apiKey);
 
         auditService.log(ActorType.USER, userId, "API_KEY_REVOKED", "API_KEY", apiKey.getId().toString(), null, null);
+        log.info("API key revoked: prefix={} userId={}", apiKey.getKeyPrefix(), userId);
     }
 }
