@@ -38,6 +38,11 @@ export default defineConfig({
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
     ignoreHTTPSErrors: true,
+    // SLOW_MO_MS delays every Playwright action by that many ms - for a test engineer
+    // watching a headed run manually, not for normal execution (0 by default, unset).
+    launchOptions: {
+      slowMo: Number(process.env.SLOW_MO_MS ?? 0),
+    },
   },
 
   projects: [

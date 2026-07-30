@@ -16,9 +16,17 @@ export abstract class BasePage {
     await this.page.goto(path);
   }
 
-  /** The toast host is created lazily on first showToast() call - scope the locator to whatever's live now. */
+  /**
+   * The toast host is created lazily on first showToast() call. Scoped to the LAST
+   * matching toast, not just any: showToast() appends each new toast to #toastHost and
+   * each stays visible for 4s (see frontend/js/api.js), so two toasts from two actions
+   * taken in quick succession (e.g. create a link, then immediately copy it) can easily
+   * both still be showing at once - especially under slow-motion/manual-observation runs
+   * where actions are deliberately spaced out less than that 4s window apart. The most
+   * recently appended toast is always the one relevant to whatever the test just did.
+   */
   toast(): Locator {
-    return this.page.locator('.toast.show');
+    return this.page.locator('.toast.show').last();
   }
 
   async expectToast(textSubstring: string): Promise<void> {
