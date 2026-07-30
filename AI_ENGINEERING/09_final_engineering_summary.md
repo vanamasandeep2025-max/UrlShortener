@@ -89,3 +89,71 @@ whatever toolchain access could actually be found rather than stopping at "no Do
 validation possible." The one remaining gap is stated plainly above and in
 `08_validation_report.md`, with the exact command (`docker compose up --build`) needed to
 close it.
+
+## Phase 13 — the gap above closed, and what full-stack validation actually found
+
+The host machine's virtualization/WSL2 blocker described above was a **hardware/firmware
+setting** (virtualization disabled in BIOS/UEFI), not a Docker Desktop defect - it required
+the user's hands-on intervention (BIOS access, an elevated `wsl --install`) to resolve.
+Once resolved, `docker compose up --build` ran successfully: all 8 containers (postgres,
+redis, zookeeper, kafka, backend, nginx, prometheus, grafana) came up healthy, and the
+system has been running and been exercised live, extensively, for the remainder of this
+engineering session - not a one-time smoke test.
+
+**This is the strongest evidence in the whole project that AI-assisted execution here was
+engineer-directed, not accepted on faith**: live validation against the real running stack
+found and fixed real defects that static review, unit tests, and even a successful Maven
+build had all missed:
+
+| # | Defect | Root cause | How it was found |
+|---|---|---|---|
+| 1 | Rate limiter denied ~100% of requests | `RateLimitFilter` constructed via `new` in `SecurityConfig`, bypassing Spring DI - its `@Value`-annotated fields silently stayed at Java's default `0` | Live `curl` against the running API returned 429 on the very first request |
+| 2 | Grafana container failed to start | Two `docker-compose.yml` volume mounts, the second nested inside the first's read-only mount | `docker compose up` logs, real container failure |
+| 3 | Maven build failed on this network | Avast antivirus's TLS interception broke certificate trust inside the build container | Real `docker build` failure, root-caused via `openssl s_client`, fixed with a portable CA-trust mechanism in `backend/Dockerfile` |
+| 4 | Frontend showed mojibake / garbled characters | Missing `<!DOCTYPE html>`/`<meta charset="UTF-8">` on every page | Reported by the user from the actual running app in a browser |
+| 5 | `url_clicks` table stayed empty while `click_count` incremented correctly | `UrlClickIngestionService` called `save()` (unflushed) then a bulk `@Modifying(clearAutomatically=true)` update in the same method, silently discarding the still-pending insert | User asked "are you really using Kafka?" - proven live via `psql`, which is how this was caught: the mismatch between the counter and the detail table |
+| 6 | Analytics endpoint threw `InvalidDefinitionException` on `LocalDate` fields | `GenericJackson2JsonRedisSerializer()`'s no-arg constructor builds its own `ObjectMapper` without `JavaTimeModule` | Live `curl` against `/analytics` after the click-tracking fix above |
+| 7 | Second call to the same analytics endpoint threw `ClassCastException` | A custom `ObjectMapper` passed to `GenericJackson2JsonRedisSerializer` doesn't auto-activate the polymorphic type hints its deserializer needs | Live `curl`, second call; fixed by switching to a typed `Jackson2JsonRedisSerializer<T>` per cache instead of one generic/polymorphic serializer |
+| 8 | A wrong password on login silently reloaded the page with no error message | `apiFetch()`'s generic 401-handler treated *every* 401, including login's own rejection, as an expired session and force-redirected | Caught by a Playwright test (`TC-AUTH-003`) failing, root-caused via the trace viewer's network timeline |
+| 9 | Registration intermittently 500'd with a foreign-key violation on `audit_logs` | `AuditService.log()` runs in `Propagation.REQUIRES_NEW`, which can never see a row the caller's still-open transaction hasn't committed - register() audit-logged the user it had just created, in the same transaction, as its own actor | Caught by a Playwright test (`TC-REG-001`) failing; fixed by giving user creation its own committing transaction boundary (`UserRegistrationService`) |
+| 10 | Dashboard action buttons wrapped onto two lines; mobile navbar overflowed the viewport; an expiry input had no accessible label | Missing `text-nowrap`/`flex-wrap` CSS; missing `aria-label` | Found visually during a live, human-monitored slow-motion browser walkthrough - not by any test |
+
+None of these were left as TODOs - each was root-caused and fixed in the running application,
+then re-verified live. Two additional real findings were investigated and **deliberately
+left unfixed but documented** rather than silently patched around: the analytics cache has
+no eviction hook on new clicks (a stale count can be served for up to its 60s TTL), and a
+successful password verification on a protected link never publishes a click event. Both
+are exactly the kind of finding that's easy to paper over in an AI-assisted build and
+easy to demand evidence for in a review - they're recorded, not hidden.
+
+**A second, independent validation artifact was also built**: `automation/`, a
+Playwright/TypeScript UI+API+E2E test framework (133 test cases; Page Object Model,
+Component Object Model, a typed API client, HTML/JUnit/Allure reporting, a GitHub Actions
+workflow). It was built the same way as the rest of this project - run against the real
+system, not assumed to work - and in the process of being built and run, it *itself*
+surfaced defects #8 and #9 above, plus several real bugs in the test framework's own code
+(a URL-construction bug that silently hit the wrong endpoint, a Playwright/Chromium DNS
+pre-resolution quirk, a toast-locator race), each diagnosed and fixed the same way as an
+application defect rather than worked around. 129 of 133 tests pass in a full run; the
+remaining 4 are a deliberately-skipped true-token-expiry test and a rate-limit test whose
+non-pass is itself explained (see `automation/README.md` "Known Limitations").
+
+A companion manual test case repository was also produced and kept in sync with the
+system's real, observed behavior: `docs/test-cases/url-lifecycle-test-cases.md`, 257 cases
+across the full URL lifecycle.
+
+**Net effect, stated precisely**: the "full Docker stack unverified" half of the original
+gap is closed - `docker compose up --build` has run successfully and the stack has been
+exercised live, extensively, ever since. The Testcontainers half is **not** literally
+closed in the narrow sense of "those two JUnit classes were executed": `backend/Dockerfile`
+builds with `-DskipTests`, and no session command re-ran `mvn test` against a live Docker
+daemon to execute `UrlRepositoryIntegrationTest`/`UrlShortenerFlowIntegrationTest`
+specifically. What replaced it is a different, and arguably stronger, form of the same
+evidence those two tests exist to provide (does the app work correctly against a real
+Postgres/Kafka?) - live verification against the actual running containers via
+`psql`/`redis-cli`/`curl`, plus an independent 133-test Playwright suite - which found ten
+real defects those two test classes would not have been positioned to catch (they exercise
+repository/service logic, not full HTTP-to-browser behavior). Running
+`mvn test -Dtest=*IntegrationTest` against the now-working Docker daemon remains a
+concrete, cheap, not-yet-done next step, and is listed as such below rather than implied
+to be redundant.
