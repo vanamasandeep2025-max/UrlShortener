@@ -1,9 +1,32 @@
+import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { test, expect } from '../../fixtures/base';
 import { DataGenerator } from '../../utils/dataGenerator';
 import { retryUntil } from '../../utils/retry';
 import { Db } from '../../helpers/db';
 import { AnalyticsPage } from '../../pages/AnalyticsPage';
 import { ProtectedPage } from '../../pages/ProtectedPage';
+
+/**
+ * A real, tiny HTTP server bound to 127.0.0.1 on an ephemeral port, for tests that need
+ * a genuinely resolvable, genuinely reachable redirect *destination* without depending on
+ * the real internet (127.0.0.1 always resolves; a fake/unresolvable TLD does not - see
+ * TC-E2E-006, which exists specifically because a manual test surfaced that Chromium's own
+ * DNS pre-resolution for cross-origin redirect targets can fail a navigation before
+ * Playwright's page.route() interception ever gets a chance to run).
+ */
+async function startMockDestinationServer(bodyText: string): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(`<!doctype html><html><body>${bodyText}</body></html>`);
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${port}/landing-page`,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
 
 /**
  * The platform's actual hottest path end-to-end: create -> redirect -> Kafka ->
@@ -200,5 +223,52 @@ test.describe('E2E - Shorten, redirect, and analytics', () => {
     // automation defect.
     const rowAfterVerify = await Db.findUrlByShortCode(created.shortCode);
     expect(Number(rowAfterVerify!.click_count)).toBe(0);
+  });
+
+  /**
+   * Priority: P0 | Maps to docs/test-cases/url-lifecycle-test-cases.md TC-RDR-023.
+   * Test Data: a real HTTP server bound to 127.0.0.1 on an ephemeral port (see
+   * startMockDestinationServer above)
+   * Expected: a real browser tab that opens the short link actually finishes navigating
+   * and lands on the destination - not just a 302/Location header inspected via API.
+   *
+   * Deliberately distinct from every other redirect assertion in this file (and from
+   * TC-E2E-001), which all check the redirect via `apiClient.redirect()` - an HTTP
+   * client reading a status code and a header, never a browser actually following it.
+   * That gap was invisible until a human opened a real shortened link in a real tab and
+   * watched it land on the wrong (or no) page - this test exists so that specific
+   * failure mode has automated coverage going forward.
+   *
+   * Uses a real local server rather than page.route()-intercepting a fake/unresolvable
+   * host: that was the first approach tried here, and it failed for a genuinely
+   * interesting reason worth recording - Chromium performs its own DNS
+   * pre-resolution/preconnect for cross-origin redirect *targets*, which can throw
+   * net::ERR_NAME_NOT_RESOLVED before Playwright's page.route() interception (a CDP
+   * Fetch-domain hook) ever gets a chance to handle the request. A real server on
+   * 127.0.0.1 sidesteps the whole problem: genuinely resolvable, genuinely reachable,
+   * still fully hermetic (no dependency on the real internet or any external site).
+   */
+  test('TC-E2E-006: opening a shortened link in a real browser tab actually lands on the destination page @smoke @regression', async ({
+    apiClient,
+    demoTokens,
+    page,
+  }) => {
+    const destinationMarker = 'mock-destination-landed';
+    const destination = await startMockDestinationServer(destinationMarker);
+
+    try {
+      const client = apiClient.withToken(demoTokens.accessToken);
+      const created = await client.createUrlOrThrow({ url: destination.url });
+
+      await page.goto(`http://localhost/${created.shortCode}`);
+
+      // The real browser tab's own URL after following the redirect - not a header read
+      // from an HTTP client - is the assertion that actually answers "did opening this
+      // shortened link work".
+      expect(page.url()).toBe(destination.url);
+      await expect(page.locator('body')).toContainText(destinationMarker);
+    } finally {
+      await destination.close();
+    }
   });
 });

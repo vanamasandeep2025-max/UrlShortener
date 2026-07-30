@@ -7,7 +7,7 @@ Compatibility, Accessibility, Error Handling/Resilience, and Production Validati
 
 **System under test:** `url-shortener-platform` (Spring Boot 3 / Java 21)
 
-**Total test cases:** 256
+**Total test cases:** 257
 
 Written against the platform's actual implemented behavior (real endpoints, real status
 codes, real field constraints) rather than generic template scenarios. An interactive,
@@ -98,6 +98,7 @@ filterable version of this same data is also published as a web artifact.
 | TC-RDR-020 | Redirect | Redirect target itself is unreachable/broken | originalUrl points to a domain that 404s | 1) GET redirect | url: https://example.com/does-not-exist-upstream | 302 still issued to the stored URL regardless of destination liveness (app does not validate) | P3 | Low | Functional |
 | TC-RDR-021 | Redirect | Redirect without following, verifying raw headers via curl --head | Active link | 1) curl -I http://host/{shortCode} | - | HTTP/1.1 302; Location header present and correct; no body fetch needed | P2 | Medium | API |
 | TC-RDR-022 | Redirect | Query parameters on the short link are not merged into destination | Active link created from a bare URL | 1) GET /{shortCode}?utm_source=test | ?utm_source=test appended to short link | 302 Location is exactly the stored originalUrl; extra query params dropped, not merged — confirm this matches intended UX | P2 | Medium | Functional |
+| TC-RDR-023 | Redirect | Open a shortened link in a real browser tab and confirm it actually lands on the destination page | Active link created via the dashboard, pointing at a real, reachable URL | 1) In the dashboard, shorten a real reachable URL (e.g. https://www.wikipedia.org/) 2) Open the resulting short link in a new browser tab (not curl/API — a real navigation) 3) Observe the final page that loads | A real, resolvable destination URL | Browser follows the 302 and fully loads the destination page; final tab URL equals the original destination exactly (no interstitial, no broken/blank page); distinct from TC-RDR-001, which only inspects the 302 status/Location header via curl and never actually renders the destination | P0 | Critical | End-to-End |
 | TC-PWD-001 | Secure Sharing | Create a password-protected link | Authenticated | 1) POST /api/v1/urls {url, password} 2) Inspect response | password: Secret1 | 201; passwordProtected=true; password never echoed back | P0 | Critical | Security |
 | TC-PWD-002 | Secure Sharing | Verify with the correct password | Protected link exists with password 'Secret1' | 1) POST /api/v1/urls/{shortCode}/verify-password {password:'Secret1'} | password: Secret1 | 200 OK; body {originalUrl: <destination>} | P0 | Critical | Functional |
 | TC-PWD-003 | Secure Sharing | Verify with an incorrect password | Protected link exists | 1) POST verify-password with wrong password | password: WrongPass | 401 Unauthorized; 'Incorrect password' | P0 | Critical | Security |
@@ -284,7 +285,7 @@ filterable version of this same data is also published as a web artifact.
 |---|---|---|---|
 | Register / Login / Refresh (Auth) | Auth | 26 | Security, Boundary, Functional |
 | Shorten URL (create) | Shorten URL | 31 | Security, Boundary, API, Functional |
-| Redirect + click tracking | Redirect | 22 | Security, Performance, Functional |
+| Redirect + click tracking | Redirect | 23 | Security, Performance, Functional, End-to-End |
 | Password-protected links (secure sharing) | Secure Sharing | 15 | Security, Functional |
 | Click analytics | Analytics | 16 | Functional, Security |
 | List / search / filter / sort | List URLs | 20 | Security, Boundary, Functional |
@@ -354,7 +355,7 @@ filterable version of this same data is also published as a web artifact.
 
 - All Auth, Shorten URL, Redirect, and RBAC functional/negative cases — stable contracts, high regression value (already partially covered by the project's own JUnit/Testcontainers suite).
 - Rate-limiting boundary cases — deterministic given a controlled clock/counter reset.
-- The full happy-path smoke chain (register->login->create->redirect->analytics) as a synthetic post-deploy check.
+- The full happy-path smoke chain (register->login->create->redirect->analytics) as a synthetic post-deploy check — include a real browser-navigation redirect assertion (TC-RDR-023), not only an API-level 302/Location-header check (TC-RDR-001): the two catch different classes of failure.
 - NOT recommended for automation: modal focus-trap and visual chart-proportion checks — better suited to manual/exploratory review.
 
 ## 9. Regression Suite Recommendation
@@ -363,7 +364,7 @@ Run this set after every release, no exceptions:
 
 - TC-AUTH-001, 015-017, 023-026
 - TC-CRT-001, 007, 010, 023, 030
-- TC-RDR-001-004, 006, 011, 019
+- TC-RDR-001-004, 006, 011, 019, 023
 - TC-PWD-001-003, 007, 013
 - TC-ANL-001, 002, 010
 - TC-LST-001, 008-011, 017-019

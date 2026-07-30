@@ -108,15 +108,15 @@ rejected.
 | URL CRUD (UI) | `tests/functional/url-crud.spec.ts` | 13 | create/search/filter/edit-expiry/delete/cancel-delete, deleted link 404s |
 | Dashboard UI | `tests/ui/dashboard-ui.spec.ts` | 8 | copy-to-clipboard, pagination, empty state, responsive table, keyboard nav, labels, load-time budget |
 | API keys (UI) | `tests/functional/api-keys-ui.spec.ts` | 4 | create/reveal-once, revoke, revoked key stops authenticating |
-| E2E lifecycle | `tests/e2e/shorten-redirect-analytics.spec.ts` | 5 | full click→Kafka→DB→analytics path, unique-visitor counting, expired/missing/password-gated links |
+| E2E lifecycle | `tests/e2e/shorten-redirect-analytics.spec.ts` | 6 | full click→Kafka→DB→analytics path, unique-visitor counting, expired/missing/password-gated links, a real browser tab actually landing on the destination page (TC-E2E-006 — see below) |
 | Auth API contract | `tests/api/auth.api.spec.ts` | 8 | schema, validation-error shape, correlation IDs, malformed JSON |
 | URLs API contract | `tests/api/urls.api.spec.ts` | 12 | pagination envelope, sort, search, status filter, PATCH/DELETE semantics |
 | API keys API contract | `tests/api/api-keys.api.spec.ts` | 7 | secret shown once, X-API-Key auth, cross-user revoke blocked |
 | Input validation | `tests/validation/input-validation.spec.ts` | ~26 at runtime | table-driven against the real `ValidHttpUrl`/`NoScriptTag` rules; SQLi/JSON-injection proof |
 | Security | `tests/security/*.spec.ts` | 6 | rate-limit 429 (isolated run), security headers, no stack-trace/secret leakage |
 
-**131 concrete test cases** (`npx playwright test --list`, chromium + api projects) before the
-cross-browser matrix (firefox/webkit/mobile) multiplies the UI subset further. **128 pass** in a
+**132 concrete test cases** (`npx playwright test --list`, chromium + api projects) before the
+cross-browser matrix (firefox/webkit/mobile) multiplies the UI subset further. **129 pass** in a
 full parallel run out of the box; the remaining 3 are the deliberately-skipped `TC-JWT-007`
 (true token expiry — see Known Limitations) and the 2-test rate-limit file, which only passes
 against the backend's *default* (non-overridden) rate-limit config — see
@@ -210,6 +210,21 @@ around in the test):
    remapping the container's published port (`POSTGRES_PORT=5433`) for this environment; see
    `.env.example` for the general diagnostic/workaround, since this can happen on any dev machine
    that also has a native Postgres install.
+
+8. **Coverage gap: no test ever actually watched a browser follow a shortened link.**
+   Every redirect assertion in this suite (including `TC-E2E-001`) went through
+   `apiClient.redirect()` — an HTTP client reading a `302` status and a `Location` header, never
+   a real browser navigating and rendering the destination. This gap was only caught by a human
+   manually opening a shortened link in a real tab. Added `TC-E2E-006` to close it — and building
+   that one test surfaced a second, genuinely interesting finding: pointing a real browser
+   navigation at a deliberately unresolvable fake domain (the pattern used everywhere else in
+   this suite to avoid real-internet dependencies) reliably threw `net::ERR_NAME_NOT_RESOLVED`
+   even with `page.route()` intercepting it — Chromium performs its own DNS
+   pre-resolution/preconnect for cross-origin *redirect targets* specifically, which can fail
+   before Playwright's CDP-based route interception ever gets a chance to run. Worked around by
+   giving `TC-E2E-006` a real, tiny HTTP server bound to `127.0.0.1` on an ephemeral port instead
+   of a fake hostname — genuinely resolvable and reachable, so the test still never depends on
+   the real internet or any external site.
 
 Each is described here with the same "why", not just "what changed", so a future change to
 `apiFetch`, transaction boundaries, cache eviction, or route constants can be checked against the
