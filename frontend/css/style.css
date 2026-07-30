@@ -1,0 +1,98 @@
+:root {
+  --brand: #4f46e5;
+  --brand-dark: #4338ca;
+  --surface: #ffffff;
+  --bg: #f6f7fb;
+  --text-muted: #6b7280;
+}
+
+body {
+  background-color: var(--bg);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-btn {
+  background-color: var(--brand);
+  border-color: var(--brand);
+}
+
+.brand-btn:hover {
+  background-color: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
+.card {
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.short-url-chip {
+  font-family: "Cascadia Code", Consolas, monospace;
+  background: #eef2ff;
+  color: var(--brand-dark);
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.4rem;
+  word-break: break-all;
+}
+
+.text-muted-small {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.bar-label {
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.bar-track {
+  flex-grow: 1;
+  background: #eef0f5;
+  border-radius: 0.35rem;
+  height: 0.9rem;
+  overflow: hidden;
+}
+
+.bar-fill {
+  background: var(--brand);
+  height: 100%;
+  border-radius: 0.35rem;
+}
+
+.bar-count {
+  width: 48px;
+  text-align: right;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.status-pill {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+#toastHost {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1080;
+}

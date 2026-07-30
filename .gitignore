@@ -1,0 +1,41 @@
+# Build outputs
+backend/target/
+**/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+*.env.local
+
+# Local network-specific CA certs (see backend/certs/README.md) - never commit these
+backend/certs/*.crt
+
+# Coverage / reports
+backend/target/site/
+jacoco*.exec
+
+# Node (if any tooling added later)
+node_modules/
+
+# Docker
+docker-data/
+volumes/

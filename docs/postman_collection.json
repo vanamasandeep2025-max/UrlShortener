@@ -1,0 +1,288 @@
+{
+  "info": {
+    "name": "URL Shortener Platform",
+    "description": "API collection for the URL Shortener Platform. Run 'Register' first (or 'Login' if you already have an account) - both auto-capture the access/refresh tokens into collection variables used by every other request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "shortCode", "value": "" },
+    { "key": "urlId", "value": "" },
+    { "key": "apiKeyId", "value": "" },
+    { "key": "apiKeyPlaintext", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"postmanuser\",\n  \"email\": \"postmanuser@example.com\",\n  \"password\": \"Passw0rd!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "register"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "  pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "}",
+                  "pm.test('status is 201 or 409 (already registered)', () => [201, 409].includes(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"Demo@12345\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.code === 200);",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.code === 200);",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "URLs",
+      "item": [
+        {
+          "name": "Create short URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://www.example.com/very/long/url\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/urls", "host": ["{{baseUrl}}"], "path": ["api", "v1", "urls"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.code === 201);",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('shortCode', body.shortCode);",
+                  "pm.collectionVariables.set('urlId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create password-protected URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://www.example.com/secret\",\n  \"password\": \"letmein\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/urls", "host": ["{{baseUrl}}"], "path": ["api", "v1", "urls"] }
+          }
+        },
+        {
+          "name": "List URLs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/urls?page=0&size=20&sort=createdAt,desc&status=ALL",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "urls"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "createdAt,desc" },
+                { "key": "status", "value": "ALL" },
+                { "key": "search", "value": "", "disabled": true }
+              ]
+            }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 200', () => pm.response.code === 200);"] } }]
+        },
+        {
+          "name": "Get analytics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/urls/{{shortCode}}/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "urls", "{{shortCode}}", "analytics"]
+            }
+          }
+        },
+        {
+          "name": "Update expiry",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"expiresAt\": \"2030-01-01T00:00:00Z\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/urls/{{urlId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "urls", "{{urlId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete URL",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/urls/{{urlId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "urls", "{{urlId}}"]
+            }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('status is 204', () => pm.response.code === 204);"] } }]
+        },
+        {
+          "name": "Verify password (protected link)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"password\": \"letmein\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/urls/{{shortCode}}/verify-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "urls", "{{shortCode}}", "verify-password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Redirect",
+      "item": [
+        {
+          "name": "Redirect (public)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/{{shortCode}}", "host": ["{{baseUrl}}"], "path": ["{{shortCode}}"] },
+            "description": "Disable Postman's 'Automatically follow redirects' setting to observe the raw 302 + Location header."
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "Create API key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Postman testing key\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/api-keys", "host": ["{{baseUrl}}"], "path": ["api", "v1", "api-keys"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.code === 201);",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('apiKeyId', body.id);",
+                  "pm.collectionVariables.set('apiKeyPlaintext', body.plaintextKey);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List API keys",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/api-keys", "host": ["{{baseUrl}}"], "path": ["api", "v1", "api-keys"] }
+          }
+        },
+        {
+          "name": "Create URL using API key auth",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKeyPlaintext}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://www.example.com/via-api-key\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/urls", "host": ["{{baseUrl}}"], "path": ["api", "v1", "urls"] }
+          }
+        },
+        {
+          "name": "Revoke API key",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/api-keys/{{apiKeyId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "api-keys", "{{apiKeyId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

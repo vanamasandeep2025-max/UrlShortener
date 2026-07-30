@@ -1,0 +1,107 @@
+{
+  "id": null,
+  "uid": "url-shortener-overview",
+  "title": "URL Shortener Platform - Overview",
+  "tags": ["url-shortener"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP request rate (req/s)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"url-shortener-platform\"}[1m]))",
+          "legendFormat": "requests/sec"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HTTP p95 latency (s)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"url-shortener-platform\"}[5m])) by (le, uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "URLs created / clicked (per 5m)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(urlshortener_urls_created_total[5m])",
+          "legendFormat": "created/sec"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(urlshortener_urls_clicked_total[5m])",
+          "legendFormat": "clicked/sec"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Redis cache hit ratio",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(cache_gets_total{result=\"hit\", application=\"url-shortener-platform\"}[5m])) / sum(rate(cache_gets_total{application=\"url-shortener-platform\"}[5m]))",
+          "legendFormat": "hit ratio"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "JVM heap used (bytes)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(jvm_memory_used_bytes{application=\"url-shortener-platform\", area=\"heap\"}) by (id)",
+          "legendFormat": "{{id}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "HikariCP active connections",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_active{application=\"url-shortener-platform\"}",
+          "legendFormat": "active"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_pending{application=\"url-shortener-platform\"}",
+          "legendFormat": "pending"
+        }
+      ]
+    }
+  ]
+}

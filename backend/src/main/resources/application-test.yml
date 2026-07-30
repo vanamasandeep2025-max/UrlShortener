@@ -1,0 +1,22 @@
+# Activated by @ActiveProfiles("test") in the test suite.
+# Testcontainers-backed integration tests inject real datasource/redis/kafka
+# connection properties at runtime via @DynamicPropertySource; the values
+# below are just safe fallbacks for slice tests that partially load context.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+app:
+  jwt:
+    secret: test-only-secret-key-not-for-production-use-minimum-32-bytes
+    expiration-ms: 3600000
+  rate-limit:
+    default-capacity: 1000
+    default-refill-seconds: 60
+
+logging:
+  level:
+    com.urlshortener: DEBUG
