@@ -147,4 +147,34 @@ test.describe('Dashboard UI - widgets and cross-cutting UI behaviour', () => {
     const elapsedMs = Date.now() - start;
     expect(elapsedMs).toBeLessThan(5_000);
   });
+
+  /**
+   * Regression guard for a real bug: Analytics/Edit expiry/Delete are three separate
+   * inline-block elements (an <a> and two <button>s) in one <td> with no nowrap/flex
+   * treatment - at normal table widths they wrapped, with Delete dropping onto its own
+   * second line below the other two. Found visually in a live manual walkthrough, fixed
+   * by adding text-nowrap to the actions cell (frontend/js/app.js#renderRows); the table
+   * is already inside .table-responsive, so nowrap here just shifts any overflow to that
+   * scrollbar instead of an awkward mid-cell wrap.
+   */
+  test('TC-UI-009: the Analytics, Edit expiry, and Delete buttons stay on one row, never wrap @regression', async ({
+    authenticatedPage,
+  }) => {
+    const dashboard = new DashboardPage(authenticatedPage);
+    await dashboard.createUrl(DataGenerator.longUrl());
+    await dashboard.waitForTableSettled();
+
+    const actionsCell = dashboard.rows().first().locator('td').last();
+    const buttons = actionsCell.locator('a.btn, button.btn');
+    await expect(buttons).toHaveCount(3);
+
+    const tops = await Promise.all(
+      (await buttons.all()).map(async (button) => {
+        const box = await button.boundingBox();
+        if (!box) throw new Error('action button has no bounding box');
+        return Math.round(box.y);
+      })
+    );
+    expect(new Set(tops).size, `expected all 3 buttons on one row, got Y positions: ${tops}`).toBe(1);
+  });
 });

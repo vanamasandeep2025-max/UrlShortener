@@ -66,7 +66,7 @@ function renderRows(urls) {
           <span class="text-muted-small">${formatDate(url.expiresAt)}</span>
           ${expired ? '<span class="badge bg-danger status-pill ms-1">expired</span>' : ""}
         </td>
-        <td class="text-end">
+        <td class="text-end text-nowrap">
           <a class="btn btn-sm btn-outline-secondary" href="analytics.html?code=${encodeURIComponent(url.shortCode)}">Analytics</a>
           <button class="btn btn-sm btn-outline-secondary" onclick="openExpiryModal('${url.id}', '${url.expiresAt || ""}')">Edit expiry</button>
           <button class="btn btn-sm btn-outline-danger" onclick="deleteUrl('${url.id}')">Delete</button>

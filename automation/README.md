@@ -106,7 +106,7 @@ rejected.
 | Session handling | `tests/auth/session.spec.ts` | 7 | logout, unauth redirect, refresh persistence, tampered token, two concurrent sessions |
 | JWT & RBAC (API) | `tests/auth/rbac.spec.ts` | 11 | missing/invalid/tampered/refresh-as-access tokens, ownership 403s, admin bypass, role can't be self-assigned |
 | URL CRUD (UI) | `tests/functional/url-crud.spec.ts` | 13 | create/search/filter/edit-expiry/delete/cancel-delete, deleted link 404s |
-| Dashboard UI | `tests/ui/dashboard-ui.spec.ts` | 8 | copy-to-clipboard, pagination, empty state, responsive table, keyboard nav, labels, load-time budget |
+| Dashboard UI | `tests/ui/dashboard-ui.spec.ts` | 9 | copy-to-clipboard, pagination, empty state, responsive table, keyboard nav, labels, load-time budget, actions row never wraps |
 | API keys (UI) | `tests/functional/api-keys-ui.spec.ts` | 4 | create/reveal-once, revoke, revoked key stops authenticating |
 | E2E lifecycle | `tests/e2e/shorten-redirect-analytics.spec.ts` | 6 | full click→Kafka→DB→analytics path, unique-visitor counting, expired/missing/password-gated links, a real browser tab actually landing on the destination page (TC-E2E-006 — see below) |
 | Auth API contract | `tests/api/auth.api.spec.ts` | 8 | schema, validation-error shape, correlation IDs, malformed JSON |
@@ -115,8 +115,8 @@ rejected.
 | Input validation | `tests/validation/input-validation.spec.ts` | ~26 at runtime | table-driven against the real `ValidHttpUrl`/`NoScriptTag` rules; SQLi/JSON-injection proof |
 | Security | `tests/security/*.spec.ts` | 6 | rate-limit 429 (isolated run), security headers, no stack-trace/secret leakage |
 
-**132 concrete test cases** (`npx playwright test --list`, chromium + api projects) before the
-cross-browser matrix (firefox/webkit/mobile) multiplies the UI subset further. **129 pass** in a
+**133 concrete test cases** (`npx playwright test --list`, chromium + api projects) before the
+cross-browser matrix (firefox/webkit/mobile) multiplies the UI subset further. **130 pass** in a
 full parallel run out of the box; the remaining 3 are the deliberately-skipped `TC-JWT-007`
 (true token expiry — see Known Limitations) and the 2-test rate-limit file, which only passes
 against the backend's *default* (non-overridden) rate-limit config — see
@@ -225,6 +225,17 @@ around in the test):
    giving `TC-E2E-006` a real, tiny HTTP server bound to `127.0.0.1` on an ephemeral port instead
    of a fake hostname — genuinely resolvable and reachable, so the test still never depends on
    the real internet or any external site.
+
+9. **Dashboard row actions wrap onto a second line** (`frontend/js/app.js#renderRows`). The
+   Analytics / Edit expiry / Delete controls are three separate inline-block elements (an `<a>`
+   and two `<button>`s) in one `<td>` with no nowrap or flex treatment, so at normal table widths
+   Delete dropped onto its own line below the other two. Found visually during a live manual
+   walkthrough (not by any automated test — every existing assertion checked the buttons
+   individually via `getByRole`, which doesn't care about layout). Fixed by adding `text-nowrap`
+   to the actions cell; the table already sits inside `.table-responsive`, so any overflow now
+   goes to that scrollbar instead of an awkward mid-cell wrap. Added `TC-UI-009` as a regression
+   guard — it asserts all three buttons share the same Y position, and was confirmed to actually
+   fail without the fix before being left in its passing state.
 
 Each is described here with the same "why", not just "what changed", so a future change to
 `apiFetch`, transaction boundaries, cache eviction, or route constants can be checked against the
