@@ -10,15 +10,18 @@ used, what was accepted/rejected/modified, and why.
 
 ## Stack
 
-| Layer | Technology |
+| Category | Technology |
 |---|---|
-| Backend | Java 21, Spring Boot 3.3, Spring Security, Spring Data JPA, Spring Validation, Spring Actuator |
-| Data | PostgreSQL 16, Flyway, Redis 7 |
-| Messaging | Apache Kafka (+ Zookeeper) |
-| Frontend | HTML5, CSS3, vanilla JavaScript, Bootstrap 5 |
-| Infra | Docker, Docker Compose, Nginx, Prometheus, Grafana |
+| Backend | Java 21 / Spring Boot 3.3 (Web, Security, Data JPA, Validation, Actuator) |
+| Database | PostgreSQL 16 (Flyway for migrations) |
+| Caching | Redis 7 (cache-aside for redirects/analytics, distributed rate-limit counters) |
+| Messaging | Apache Kafka + Zookeeper (async click tracking, retry + DLQ) |
+| Testing | JUnit 5, Mockito, Testcontainers, Playwright + TypeScript (133 tests), k6 (load testing) |
+| API Documentation | Swagger / OpenAPI (springdoc-openapi) |
+| Containerization | Docker, Docker Compose (8 services) |
 | CI/CD | GitHub Actions |
-| Testing | JUnit 5, Mockito, Testcontainers, k6 |
+| Frontend | HTML5 / CSS3 / Vanilla JavaScript / Bootstrap 5 |
+| Observability | Micrometer, Prometheus, Grafana, structured JSON logs (Logback) |
 
 ## Quick start
 
