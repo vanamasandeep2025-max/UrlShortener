@@ -65,7 +65,13 @@ async function apiFetch(path, options = {}, retry = true) {
 
   const response = await fetch(`${API_BASE}${path}`, Object.assign({}, options, { headers }));
 
-  if (response.status === 401 && retry) {
+  // Only an already-authenticated request (one that actually attached a Bearer token) can
+  // have a "session" to expire. A 401 from an anonymous call - most importantly /auth/login
+  // itself on a wrong password - is just that endpoint's normal rejection and must flow
+  // through to the caller's own error handling instead of being reinterpreted as an expired
+  // session, which used to clear tokens and force-reload login.html, silently wiping out the
+  // real "Invalid username or password" toast before it ever rendered.
+  if (response.status === 401 && retry && token) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       return apiFetch(path, options, false);

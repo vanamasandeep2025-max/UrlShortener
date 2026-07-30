@@ -35,13 +35,14 @@ class AuthServiceImplTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private AuditService auditService;
+    @Mock private UserRegistrationService userRegistrationService;
     @Mock private Claims claims;
 
     private AuthServiceImpl authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthServiceImpl(userRepository, passwordEncoder, jwtTokenProvider, auditService);
+        authService = new AuthServiceImpl(userRepository, passwordEncoder, jwtTokenProvider, auditService, userRegistrationService);
     }
 
     private User activeUser() {
@@ -72,12 +73,9 @@ class AuthServiceImplTest {
     void registerIssuesTokenPairOnSuccess() {
         when(userRepository.existsByUsernameIgnoreCaseAndDeletedAtIsNull("alice")).thenReturn(false);
         when(userRepository.existsByEmailIgnoreCaseAndDeletedAtIsNull("alice@example.com")).thenReturn(false);
-        when(passwordEncoder.encode("Passw0rd!")).thenReturn("hashed");
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
-            User u = inv.getArgument(0);
-            u.setId(UUID.randomUUID());
-            return u;
-        });
+        when(userRegistrationService.createUser("alice", "alice@example.com", "Passw0rd!")).thenAnswer(inv ->
+            User.builder().id(UUID.randomUUID()).username("alice").email("alice@example.com")
+                .passwordHash("hashed").role(UserRole.USER).enabled(true).build());
         when(jwtTokenProvider.generateAccessToken(any(), anyString(), anyString())).thenReturn("access-token");
         when(jwtTokenProvider.generateRefreshToken(any(), anyString(), anyString())).thenReturn("refresh-token");
 

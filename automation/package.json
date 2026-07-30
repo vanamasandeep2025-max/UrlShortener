@@ -1,0 +1,59 @@
+{
+  "name": "url-shortener-platform-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation framework for the URL Shortener Platform (UI + API)",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:auth": "playwright test tests/auth",
+    "test:functional": "playwright test tests/functional",
+    "test:ui-suite": "playwright test tests/ui",
+    "test:validation": "playwright test tests/validation",
+    "test:e2e": "playwright test tests/e2e",
+    "test:api": "playwright test tests/api",
+    "test:security": "playwright test tests/security",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:sharded": "playwright test --shard=1/2",
+    "report:html": "playwright show-report reports/html-report",
+    "report:allure": "allure generate reports/allure-results --clean -o reports/allure-report && allure open reports/allure-report",
+    "codegen": "playwright codegen",
+    "install:browsers": "playwright install --with-deps",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.0.3",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.7.5",
+    "@types/pg": "^8.20.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "allure-commandline": "^2.30.0",
+    "allure-playwright": "^3.0.7",
+    "axios": "^1.7.7",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-playwright": "^2.0.1",
+    "pg": "^8.13.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}

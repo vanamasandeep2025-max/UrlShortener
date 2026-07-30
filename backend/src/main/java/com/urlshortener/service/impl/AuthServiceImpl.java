@@ -7,7 +7,6 @@ import com.urlshortener.dto.request.RegisterRequest;
 import com.urlshortener.dto.response.AuthResponse;
 import com.urlshortener.entity.ActorType;
 import com.urlshortener.entity.User;
-import com.urlshortener.entity.UserRole;
 import com.urlshortener.exception.DuplicateResourceException;
 import com.urlshortener.exception.InvalidTokenException;
 import com.urlshortener.repository.UserRepository;
@@ -30,9 +29,9 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuditService auditService;
+    private final UserRegistrationService userRegistrationService;
 
     @Override
-    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsernameIgnoreCaseAndDeletedAtIsNull(request.getUsername())) {
             throw new DuplicateResourceException("Username is already taken");
@@ -41,14 +40,12 @@ public class AuthServiceImpl implements AuthService {
             throw new DuplicateResourceException("Email is already registered");
         }
 
-        User user = User.builder()
-            .username(request.getUsername())
-            .email(request.getEmail())
-            .passwordHash(passwordEncoder.encode(request.getPassword()))
-            .role(UserRole.USER)
-            .enabled(true)
-            .build();
-        user = userRepository.save(user);
+        // Not wrapped in this method's own transaction: UserRegistrationService.createUser
+        // has its own @Transactional boundary that must actually COMMIT before control
+        // returns here - see UserRegistrationService's Javadoc for why (AuditService.log's
+        // REQUIRES_NEW propagation cannot see an uncommitted row from a still-open outer
+        // transaction, no matter how it's flushed).
+        User user = userRegistrationService.createUser(request.getUsername(), request.getEmail(), request.getPassword());
 
         auditService.log(ActorType.USER, user.getId(), "USER_REGISTERED", "USER", user.getId().toString(),
             Map.of("username", user.getUsername()), null);

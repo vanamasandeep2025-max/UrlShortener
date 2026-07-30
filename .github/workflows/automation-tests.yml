@@ -1,0 +1,111 @@
+name: UI/API Automation Suite
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'automation/**'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+  schedule:
+    # Nightly regression run against a fresh compose stack.
+    - cron: '0 3 * * *'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Raised well above the default 100 req/60s so the parallel suite's own traffic
+      # (all originating from one CI runner IP) never trips the rate limiter by accident.
+      # See automation/README.md "Known Limitations".
+      RATE_LIMIT_DEFAULT_CAPACITY: 5000
+      RATE_LIMIT_DEFAULT_REFILL_SECONDS: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the application stack
+        run: docker compose up --build -d
+
+      - name: Wait for the backend to become healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost/actuator/health | grep -q '"status":"UP"'; then
+              echo "Backend is up"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become healthy in time"
+          docker compose logs backend
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: automation/package-lock.json
+
+      - name: Install automation dependencies
+        working-directory: automation
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: automation
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Typecheck
+        working-directory: automation
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: automation
+        run: npm run lint
+
+      - name: Run the automation suite (chromium, firefox, webkit)
+        working-directory: automation
+        env:
+          TEST_ENV: docker
+          APP_BASE_URL: http://localhost
+          API_BASE_URL: http://localhost/api/v1
+          CI: 'true'
+        run: npx playwright test --project=chromium --project=firefox --project=webkit --project=api
+
+      - name: Run rate-limit test in isolation
+        if: always()
+        working-directory: automation
+        run: npx playwright test tests/security/rate-limit.spec.ts --workers=1
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: automation/reports/html-report
+          retention-days: 14
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: automation/reports/allure-results
+          retention-days: 14
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: automation/reports/junit
+          retention-days: 14
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: docker compose logs backend
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose down -v
