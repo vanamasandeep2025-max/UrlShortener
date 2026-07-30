@@ -5,6 +5,12 @@ revised - rather than accepted as-is. Full traceability (requirement -> validati
 each is in `05_ai_traceability.md`; this document focuses specifically on *how the prompt
 or approach changed* between iterations.
 
+> A fourth iteration, from Phase 13 (live post-deployment validation, not the original
+> build), is documented in `10_phase13_brownfield_evidence.md` Part 1c - the analytics
+> cache serializer fix that solved serialization on the first pass but not deserialization,
+> caught only by a second live call to the same endpoint. Kept in that document rather than
+> merged in here since it's inseparable from the brownfield root-cause narrative around it.
+
 ## Iteration 1 — Rate limiting dependency
 
 **First pass prompt**: "Implement distributed rate limiting with Bucket4j backed by

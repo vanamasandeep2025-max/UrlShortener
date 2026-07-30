@@ -119,7 +119,10 @@ build had all missed:
 | 10 | Dashboard action buttons wrapped onto two lines; mobile navbar overflowed the viewport; an expiry input had no accessible label | Missing `text-nowrap`/`flex-wrap` CSS; missing `aria-label` | Found visually during a live, human-monitored slow-motion browser walkthrough - not by any test |
 
 None of these were left as TODOs - each was root-caused and fixed in the running application,
-then re-verified live. Two additional real findings were investigated and **deliberately
+then re-verified live. Three of these (#9, #5, #6/#7) are documented in full
+impacted-module, cross-boundary-reasoning depth in `10_phase13_brownfield_evidence.md`, the
+genuine-brownfield counterpart to the simulated exercise in
+`scenarios/02_brownfield_browser_detection.md`. Two additional real findings were investigated and **deliberately
 left unfixed but documented** rather than silently patched around: the analytics cache has
 no eviction hook on new clicks (a stale count can be served for up to its 60s TTL), and a
 successful password verification on a protected link never publishes a click event. Both
