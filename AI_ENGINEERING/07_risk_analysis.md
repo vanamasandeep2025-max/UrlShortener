@@ -26,6 +26,14 @@ build (`docker compose up --build`) and CI.
 process. This is explicitly why Phase 12 exists and why its outcome is reported honestly
 rather than assumed.
 
+> **Update, later in this session**: this residual risk is now much smaller than stated
+> above. Phase 12's Maven build was later followed by Phase 13 - the full Docker stack
+> running live for the remainder of this engineering session, plus a 133-test Playwright
+> suite exercised against it - which is materially stronger evidence against an undetected
+> defect than a clean compile alone. See `08_validation_report.md` "Phase 13" for the ten
+> real defects that live validation found (none were compile errors; all were runtime
+> logic/config/transaction-boundary bugs a compiler can't catch by nature).
+
 ## Functional / architectural risks
 
 | Risk | Likelihood | Impact | Mitigation | Status |
@@ -37,6 +45,8 @@ rather than assumed.
 | Analytics query cost grows with click volume (no pre-aggregation) | Medium (at scale) | Medium | Documented, not solved - `AnalyticsServiceImpl` runs live `GROUP BY` queries against `url_clicks` on every cache-miss; fine at demo scale, would need a rollup/materialized-view strategy at real scale | **Known limitation, not addressed** - explicitly out of scope for this exercise |
 | Geo-IP country is always null | High (by design) | Low | `NoOpGeoIpService` documented as a stub; interface designed for a real implementation to be dropped in | **Known limitation, intentional** |
 | No automated test proves the DLQ path actually fires | Certain | Low | Configuration reviewed by inspection; not proven by test | **Known gap** - see `05_ai_traceability.md` Task 7 |
+| Analytics cache serves a stale click count after new clicks arrive within its 60s TTL | High for a link with multiple rapid clicks | Low | Documented, not solved - the `analytics` cache is only skipped while `totalClicks==0`; once non-zero it has no eviction hook on later clicks | **Found live in Phase 13** (`TC-E2E-002`), not addressed - see `08_validation_report.md` |
+| A password-protected link's click is never tracked, even after correct password verification | Certain | Low | `UrlServiceImpl#verifyPasswordAndGetDestination` never publishes a `UrlClickedEvent` | **Found live in Phase 13** (`TC-E2E-005`), not addressed - product decision, not obviously a bug either way |
 
 ## Security risks
 
@@ -46,6 +56,20 @@ rather than assumed.
 | JWT has no server-side revocation (a stolen access token is valid until it expires) | Short default access-token TTL (1 hour); refresh tokens are the longer-lived credential and could be revoked via a future denylist if needed | **Known limitation** - no revocation list implemented in this build |
 | Rate limiting is IP/API-key keyed - doesn't stop a distributed brute-force from many IPs | Documented as a limitation; a WAF/upstream rate-limiter would be the real production answer | **Known limitation** |
 | `NoScriptTag`/`ValidHttpUrl` are regex/scheme-based, not a full HTML sanitizer | Sufficient for this API's actual attack surface (URLs and short text fields, not rendered HTML) - documented as defense-in-depth, not the only XSS control (output encoding on the frontend is the primary one) | Mitigated for the actual threat model |
+
+## Change-management risk (stated plainly, not smoothed over)
+
+The initial backend/frontend/infra build (~100 Java files, the full frontend, all Docker
+Compose infra) was committed as a single `Initial commit`, not as the incremental,
+independently-reviewable steps the 12-phase plan in `02_task_breakdown.md` was actually
+executed in. Every commit *since* - the QA test-case repository, the architecture
+reference, each Phase 13 bug fix, the automation suite, these documentation updates - is a
+small, scoped commit with a rationale-carrying message (several explicitly explain *why*,
+not just *what*, matching the standard this whole `AI_ENGINEERING` folder holds itself to).
+If "safe change management" is being assessed on commit granularity specifically, the front
+half of the project's git history won't show it, even though the underlying work was done
+in reviewed phases. **Known gap, not fixed retroactively**: rewriting history to manufacture
+granularity after the fact would be worse than leaving this stated honestly here.
 
 ## Process risk mitigated by scope discipline
 
