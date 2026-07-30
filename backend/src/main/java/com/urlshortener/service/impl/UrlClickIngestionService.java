@@ -47,7 +47,13 @@ public class UrlClickIngestionService {
             .referrer(event.getReferrer())
             .correlationId(event.getCorrelationId())
             .build();
-        urlClickRepository.save(click);
+        // saveAndFlush (not save) is deliberate: incrementClickCount() below is a bulk JPQL
+        // update with clearAutomatically=true (see UrlRepository), which detaches every
+        // entity in the persistence context after it runs - including a still-pending,
+        // not-yet-flushed new UrlClick. A plain save() would get silently dropped (the
+        // INSERT never sent) rather than persisted, while click_count still increments -
+        // exactly the split-brain bug this flush prevents.
+        urlClickRepository.saveAndFlush(click);
         urlRepository.incrementClickCount(event.getUrlId());
         return true;
     }
