@@ -60,9 +60,15 @@ export class DashboardPage extends BasePage {
   }
 
   async search(term: string): Promise<void> {
+    // Waits for the real debounced GET /urls response rather than guessing at app.js's
+    // 350ms debounce with a fixed sleep: under real load (parallel workers, headed mode)
+    // a flat waitForTimeout is exactly as likely to fire too early as too late, and either
+    // way it doesn't wait for the response the table is actually about to render from.
+    const responsePromise = this.page.waitForResponse(
+      (res) => res.url().includes('/api/v1/urls') && res.request().method() === 'GET'
+    );
     await this.searchInput.fill(term);
-    // app.js debounces input by 350ms before firing the list request.
-    await this.page.waitForTimeout(450);
+    await responsePromise;
     await this.waitForTableSettled();
   }
 

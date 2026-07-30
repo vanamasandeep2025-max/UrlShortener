@@ -77,10 +77,16 @@ test.describe('Authentication - Session handling', () => {
       await expect(demoPage).toHaveURL(new RegExp(Routes.dashboard));
       await expect(adminPage).toHaveURL(new RegExp(Routes.dashboard));
 
-      const demoUser = await demoPage.locator('#currentUserLabel').textContent();
-      const adminUser = await adminPage.locator('#currentUserLabel').textContent();
-      expect(demoUser).toContain('demo');
-      expect(adminUser).toContain('admin');
+      // toHaveURL only waits for the redirect itself - app.js populates #currentUserLabel
+      // asynchronously afterward (decodeJwtSubject on DOMContentLoaded), so reading
+      // textContent() immediately races that population under any real load.
+      const demoLabel = demoPage.locator('#currentUserLabel');
+      const adminLabel = adminPage.locator('#currentUserLabel');
+      await expect(demoLabel).not.toBeEmpty();
+      await expect(adminLabel).not.toBeEmpty();
+
+      expect(await demoLabel.textContent()).toContain('demo');
+      expect(await adminLabel.textContent()).toContain('admin');
     } finally {
       await demoContext.close();
       await adminContext.close();

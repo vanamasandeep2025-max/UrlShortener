@@ -54,6 +54,12 @@ test.describe('URL lifecycle - Create, Read, Update, Delete', () => {
     authenticatedPage,
   }) => {
     const dashboard = new DashboardPage(authenticatedPage);
+    // Must settle first: the authenticatedPage fixture returns as soon as navigation
+    // completes, not once the initial GET /urls has resolved - reading rowCount()
+    // immediately can catch the "Loading..." placeholder (correctly counted as 0 real
+    // rows) rather than the real, still-in-flight row count, producing a false mismatch
+    // once the real data arrives later in the test.
+    await dashboard.waitForTableSettled();
     const rowCountBefore = await dashboard.rowCount();
 
     await dashboard.urlInput.fill(BoundaryPayloads.notAUrl);
